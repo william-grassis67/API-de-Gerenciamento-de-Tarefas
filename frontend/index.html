@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste da API de Tarefas</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f1f5f9;
+            color: #0f172a;
+            margin: 0;
+            padding: 30px 16px;
+        }
+
+        main {
+            max-width: 650px;
+            margin: auto;
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        .card {
+            background: white;
+            padding: 24px;
+            border-radius: 14px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 15px #0000000d;
+        }
+
+        label {
+            display: block;
+            margin: 16px 0 8px;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+
+        .opcao {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            margin-right: 20px;
+        }
+
+        button {
+            border: none;
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-top: 16px;
+            margin-right: 8px;
+            background: #2563eb;
+            color: white;
+            font-size: 15px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #1d4ed8;
+        }
+
+        .secundario {
+            background: #475569;
+        }
+
+        #resultado {
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+            background: #0f172a;
+            color: #86efac;
+            padding: 16px;
+            border-radius: 8px;
+            min-height: 60px;
+        }
+
+        .tarefa {
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 14px;
+            margin-top: 10px;
+        }
+
+        .status {
+            color: #475569;
+            font-size: 14px;
+        }
+    </style>
+</head>
+
+<body>
+<main>
+    <h1>API de Tarefas</h1>
+    <p style="text-align:center">
+        Interface de testes para sua API Python com FastAPI
+    </p>
+
+    <section class="card">
+        <h2>Registrar tarefa</h2>
+
+        <form id="formTarefa">
+            <label for="titulo">Título da tarefa</label>
+            <input
+                type="text"
+                id="titulo"
+                placeholder="Ex.: Estudar FastAPI"
+                required
+            >
+
+            <label>A tarefa está concluída?</label>
+
+            <label class="opcao">
+                <input type="radio" name="concluida" value="true">
+                Sim
+            </label>
+
+            <label class="opcao">
+                <input
+                    type="radio"
+                    name="concluida"
+                    value="false"
+                    checked
+                >
+                Não
+            </label>
+
+            <br>
+            <button type="submit">Cadastrar tarefa</button>
+        </form>
+    </section>
+
+    <section class="card">
+        <h2>Tarefas cadastradas</h2>
+        <button id="btnListar">Buscar tarefas (GET)</button>
+        <div id="listaTarefas"></div>
+    </section>
+
+    <section class="card">
+        <h2>Resposta da API</h2>
+        <pre id="resultado">Aguardando uma requisição...</pre>
+    </section>
+</main>
+
+<script>
+    const API_URL = "http://127.0.0.1:8000";
+
+    const resultado = document.getElementById("resultado");
+    const listaTarefas = document.getElementById("listaTarefas");
+
+    function mostrarResposta(dados) {
+        resultado.textContent = JSON.stringify(dados, null, 2);
+    }
+
+    async function listarTarefas() {
+        try {
+            const resposta = await fetch(`${API_URL}/tarefas`);
+            const dados = await resposta.json();
+
+            if (!resposta.ok) {
+                throw new Error(JSON.stringify(dados));
+            }
+
+            mostrarResposta(dados);
+            listaTarefas.replaceChildren();
+
+            if (!Array.isArray(dados)) {
+                throw new Error(
+                    "A API deveria retornar uma lista de tarefas."
+                );
+            }
+
+            if (dados.length === 0) {
+                listaTarefas.textContent = "Nenhuma tarefa cadastrada.";
+                return;
+            }
+
+            dados.forEach((tarefa) => {
+                const item = document.createElement("div");
+                item.className = "tarefa";
+
+                const titulo = document.createElement("strong");
+                titulo.textContent = tarefa.titulo;
+
+                const status = document.createElement("p");
+                status.className = "status";
+                status.textContent = tarefa.concluida
+                    ? "Concluída"
+                    : "Pendente";
+
+                item.append(titulo, status);
+                listaTarefas.appendChild(item);
+            });
+        } catch (erro) {
+            mostrarResposta({
+                erro: erro.message,
+                dica: "Verifique se o FastAPI está rodando na porta 8000."
+            });
+        }
+    }
+
+    document.getElementById("formTarefa").addEventListener(
+        "submit",
+        async (evento) => {
+            evento.preventDefault();
+
+            const titulo = document.getElementById("titulo").value.trim();
+            const concluida = document.querySelector(
+                'input[name="concluida"]:checked'
+            ).value === "true";
+
+            if (!titulo) {
+                mostrarResposta({ erro: "Digite o título da tarefa." });
+                return;
+            }
+
+            try {
+                const resposta = await fetch(
+                    `${API_URL}/registrar/tarefa`,
+                    {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({
+                            titulo: titulo,
+                            concluida: concluida
+                        })
+                    }
+                );
+
+                const dados = await resposta.json();
+                mostrarResposta(dados);
+
+                if (!resposta.ok) {
+                    return;
+                }
+
+                document.getElementById("formTarefa").reset();
+                await listarTarefas();
+            } catch (erro) {
+                mostrarResposta({
+                    erro: erro.message,
+                    dica: "Confira o servidor FastAPI e a configuração de CORS."
+                });
+            }
+        }
+    );
+
+    document.getElementById("btnListar").addEventListener(
+        "click",
+        listarTarefas
+    );
+</script>
+</body>
+</html>
